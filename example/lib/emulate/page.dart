@@ -4,14 +4,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:nfc_in_flutter/nfc_in_flutter.dart';
 
-class EmulateNfcTagScreen extends StatefulWidget {
+class EmulateNfcTagPage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
-    return _EmulateNfcTagScreenState();
+    return _EmulateNfcTagPageState();
   }
 }
 
-class _EmulateNfcTagScreenState extends State<EmulateNfcTagScreen> {
+class _EmulateNfcTagPageState extends State<EmulateNfcTagPage> {
   StreamSubscription<NDEFMessage> _stream;
 
 

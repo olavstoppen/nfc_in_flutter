@@ -2,11 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:nfc_in_flutter/nfc_in_flutter.dart';
-
-import './read_example_screen.dart';
-import './write_example_screen.dart';
-import './emulate_nfc_tag_screen.dart';
-
+import 'package:nfc_in_flutter_example/emulate/page.dart';
+import 'package:nfc_in_flutter_example/read/page.dart';
+import 'package:nfc_in_flutter_example/write/page.dart';
 void main() => runApp(ExampleApp());
 
 class ExampleApp extends StatelessWidget {
@@ -43,9 +41,9 @@ class ExampleApp extends StatelessWidget {
         }),
       ),
       routes: {
-        "/read_example": (context) => ReadExampleScreen(),
-        "/write_example": (context) => WriteExampleScreen(),
-        "/emulate_nfc_tag_example": (context) => EmulateNfcTagScreen(),
+        "/read_example": (context) => ReadTagPage(),
+        "/write_example": (context) => WriteNfcPage(),
+        "/emulate_nfc_tag_example": (context) => EmulateNfcTagPage(),
       },
     );
   }

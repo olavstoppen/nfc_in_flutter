@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-class WriteExampleScreen extends StatefulWidget {
+class WriteNfcPage extends StatefulWidget {
   @override
-  _WriteExampleScreenState createState() => _WriteExampleScreenState();
+  _WriteNfcPageState createState() => _WriteNfcPageState();
 }
 
-class _WriteExampleScreenState extends State<WriteExampleScreen> {
+class _WriteNfcPageState extends State<WriteNfcPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
