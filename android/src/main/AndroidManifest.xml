@@ -1,14 +1,24 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   package="me.andisemler.nfc_in_flutter">
     <uses-permission android:name="android.permission.NFC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-feature android:name="android.hardware.nfc.hce"
         android:required="true" />
 
     <application
         android:theme = "@style/no_action_bar">
 
+        <activity android:name=".MainActivity"
+            android:label="Main activity"
+            >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
         <service
-            android:name=".HostCardEmulatorService"
+            android:name=".HostCardEmulatorService2"
             android:exported="true"
             android:permission="android.permission.BIND_NFC_SERVICE">
             <intent-filter>

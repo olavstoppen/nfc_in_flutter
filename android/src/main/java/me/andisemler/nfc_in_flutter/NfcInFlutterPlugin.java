@@ -10,6 +10,7 @@ import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.nfc.tech.Ndef;
 import android.nfc.tech.NdefFormatable;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
@@ -37,6 +38,7 @@ import io.flutter.plugin.common.PluginRegistry.Registrar;
 /**
  * NfcInFlutterPlugin
  */
+@android.support.annotation.RequiresApi(api = Build.VERSION_CODES.KITKAT)
 public class NfcInFlutterPlugin implements MethodCallHandler,
         EventChannel.StreamHandler,
         PluginRegistry.NewIntentListener,
