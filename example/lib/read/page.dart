@@ -20,6 +20,12 @@ class _ReadTagPageState extends State<ReadTagPage> {
   }
 
   @override
+  void dispose() {
+    super.dispose();
+    model.stop();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
