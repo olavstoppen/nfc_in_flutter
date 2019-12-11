@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="service_name">CardEmulation Sample</string>
-    <string name="card_title">Sample Loyalty Card</string>
+    <string name="service_name">Easee Host Emulation</string>
+    <string name="card_title">Easee-Key</string>
 </resources>

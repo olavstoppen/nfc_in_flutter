@@ -2,8 +2,7 @@
   package="me.andisemler.nfc_in_flutter">
     <uses-permission android:name="android.permission.NFC" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-feature android:name="android.hardware.nfc.hce"
-        android:required="true" />
+    <uses-feature android:name="android.hardware.nfc.hce" android:required="true" />
 
     <application
         android:theme = "@style/no_action_bar">
@@ -18,7 +17,7 @@
         </activity>
 
         <service
-            android:name=".HostCardEmulatorService2"
+            android:name=".HostCardEmulatorService"
             android:exported="true"
             android:permission="android.permission.BIND_NFC_SERVICE">
             <intent-filter>
