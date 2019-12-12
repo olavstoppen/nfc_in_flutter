@@ -211,6 +211,10 @@ class NFC {
     return controller.stream;
   }
 
+  static void startHostEmulationService(){
+    _channel.invokeMethod("emulateHostCard");
+  }
+
   /// isNDEFSupported checks if the device supports reading NDEF tags
   static Future<bool> get isNDEFSupported async {
     final supported = await _channel.invokeMethod("readNDEFSupported");

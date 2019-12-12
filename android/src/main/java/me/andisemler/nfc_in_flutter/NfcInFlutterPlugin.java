@@ -130,8 +130,17 @@ public class NfcInFlutterPlugin implements MethodCallHandler,
                     result.error(e.code, e.message, e.details);
                 }
                 break;
+            case "emulateHostCard":
+                emulateHostCard();
+
             default:
                 result.notImplemented();
+        }
+    }
+
+    private void emulateHostCard() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            activity.startForegroundService(new Intent(activity, HostCardEmulatorService.class));
         }
     }
 
