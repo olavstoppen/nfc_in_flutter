@@ -221,6 +221,12 @@ class NFC {
     assert(supported is bool);
     return supported as bool;
   }
+
+  static Future<bool> get isNDEFEnabled async {
+    final supported = await _channel.invokeMethod("readNDEFEnabled");
+    assert(supported is bool);
+    return supported as bool;
+  }
 }
 
 /// NFCReaderMode is an interface for different reading modes

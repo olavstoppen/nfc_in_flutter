@@ -38,7 +38,6 @@ import io.flutter.plugin.common.PluginRegistry.Registrar;
 /**
  * NfcInFlutterPlugin
  */
-@android.support.annotation.RequiresApi(api = Build.VERSION_CODES.KITKAT)
 public class NfcInFlutterPlugin implements MethodCallHandler,
         EventChannel.StreamHandler,
         PluginRegistry.NewIntentListener,
@@ -75,8 +74,10 @@ public class NfcInFlutterPlugin implements MethodCallHandler,
     @Override
     public void onMethodCall(MethodCall call, Result result) {
         switch (call.method) {
-            case "readNDEFSupported":
+            case "readNDEFEnabled":
                 result.success(nfcIsEnabled());
+            case "readNDEFSupported":
+                result.success(nfcIsSupported());
                 break;
             case "startNDEFReading":
                 if (!(call.arguments instanceof HashMap)) {
@@ -148,6 +149,11 @@ public class NfcInFlutterPlugin implements MethodCallHandler,
         NfcAdapter adapter = NfcAdapter.getDefaultAdapter(activity);
         if (adapter == null) return false;
         return adapter.isEnabled();
+    }
+
+    private Boolean nfcIsSupported() {
+        NfcAdapter adapter = NfcAdapter.getDefaultAdapter(activity);
+        return adapter != null;
     }
 
     private void startReading(boolean noSounds) {
