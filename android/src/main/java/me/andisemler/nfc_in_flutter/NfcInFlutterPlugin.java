@@ -1,6 +1,7 @@
 package me.andisemler.nfc_in_flutter;
 
 import android.app.Activity;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Intent;
 import android.nfc.FormatException;
@@ -34,6 +35,9 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
 import io.flutter.plugin.common.MethodChannel.Result;
 import io.flutter.plugin.common.PluginRegistry;
 import io.flutter.plugin.common.PluginRegistry.Registrar;
+
+import static android.content.Context.NOTIFICATION_SERVICE;
+import static me.andisemler.nfc_in_flutter.HostCardEmulatorService.FOREGROUND_ID;
 
 /**
  * NfcInFlutterPlugin
@@ -132,16 +136,41 @@ public class NfcInFlutterPlugin implements MethodCallHandler,
                 }
                 break;
             case "emulateHostCard":
-                emulateHostCard();
+                try
+                {
+                    result.success(emulateHostCard());
+
+                } catch (NfcInFlutterException e) {
+                    result.error(e.code, e.message, e.details);
+                }
+                break;
 
             default:
                 result.notImplemented();
         }
     }
 
-    private void emulateHostCard() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            activity.startForegroundService(new Intent(activity, HostCardEmulatorService.class));
+    private boolean hostCardEmulationRunning = false;
+    private boolean emulateHostCard() throws NfcInFlutterException {
+        if(!hostCardEmulationRunning)
+        {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                activity.startForegroundService(new Intent(activity, HostCardEmulatorService.class));
+            } else
+            {
+                activity.startService(new Intent(activity, HostCardEmulatorService.class));
+            }
+            hostCardEmulationRunning = true;
+            return true;
+        }
+        else
+        {
+            activity.stopService(new Intent(activity, HostCardEmulatorService.class));
+
+            NotificationManager notificationManager = (NotificationManager) activity.getSystemService(NOTIFICATION_SERVICE);
+            notificationManager.cancel(FOREGROUND_ID);
+            hostCardEmulationRunning = false;
+            return false;
         }
     }
 

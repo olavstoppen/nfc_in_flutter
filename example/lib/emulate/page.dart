@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'package:nfc_in_flutter/nfc_in_flutter.dart';
 
 class EmulateNfcTagPage extends StatefulWidget {
   @override
@@ -20,9 +21,14 @@ class _EmulateNfcTagPageState extends State<EmulateNfcTagPage>
       body: Center(
           child: RaisedButton(
             child: const Text("Toggle scan"),
-            onPressed: () => {},
+            onPressed: startHostEmulation,
           )),
     );
   }
 
+
+  void startHostEmulation() async {
+    var running = await NFC.startHostEmulationService();
+    print(running);
+  }
 }

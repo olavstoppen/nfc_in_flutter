@@ -2,6 +2,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="me.andisemler.nfc_in_flutter_example">
     <uses-permission android:name="android.permission.NFC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-feature android:name="android.hardware.nfc.hce" android:required="true" />
 
     <!-- io.flutter.app.FlutterApplication is an android.app.Application that
          calls FlutterMain.startInitialization(this); in its onCreate method.
