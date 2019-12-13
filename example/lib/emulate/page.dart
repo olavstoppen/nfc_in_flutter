@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'package:nfc_in_flutter/nfc_in_flutter.dart';
 
 class EmulateNfcTagPage extends StatefulWidget {
   @override
