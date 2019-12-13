@@ -8,17 +8,20 @@
 @end
 
 
-@interface NfcInFlutterPlugin : NSObject<FlutterPlugin> {
-    FlutterEventSink events;
-    NSObject<NFCWrapper>* wrapper;
-}
+@interface NfcInFlutterPlugin : NSObject<FlutterPlugin>
+
+@property(nonatomic,strong) NSObject<NFCWrapper>* _Nonnull wrapper;
+
+@property(nonatomic,strong) FlutterEventSink _Nullable events;
+
 @end
 
 API_AVAILABLE(ios(11))
-@interface NFCWrapperBase : NSObject <FlutterStreamHandler> {
-    FlutterEventSink events;
-    NFCNDEFReaderSession* session;
-}
+@interface NFCWrapperBase : NSObject <FlutterStreamHandler>
+
+@property(nonatomic,strong) FlutterEventSink _Nullable events;
+@property(nonatomic,strong) NFCNDEFReaderSession* _Nullable session;
+
 - (void)readerSession:(nonnull NFCNDEFReaderSession *)session didInvalidateWithError:(nonnull NSError *)error;
 
 - (FlutterError * _Nullable)onListenWithArguments:(id _Nullable)arguments eventSink:(nonnull FlutterEventSink)events;
