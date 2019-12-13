@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:nfc_in_flutter/nfc_in_flutter.dart';
-import 'package:nfc_in_flutter_example/emulate/page.dart';
-import 'package:nfc_in_flutter_example/read/page.dart';
-import 'package:nfc_in_flutter_example/write/page.dart';
+
+import 'emulate/page.dart';
+import 'read/page.dart';
+import 'write/page.dart';
+
 void main() => runApp(ExampleApp());
 
 class ExampleApp extends StatelessWidget {
