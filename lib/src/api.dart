@@ -211,7 +211,7 @@ class NFC {
     return controller.stream;
   }
 
-  static void startHostEmulationService(){
+  static Future<bool> startHostEmulationService(){
     _channel.invokeMethod("emulateHostCard");
   }
 

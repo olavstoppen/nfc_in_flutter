@@ -26,11 +26,19 @@ public class HostCardEmulatorService extends HostApduService {
     static String DEFAULT_CLA ="00" ;
     static int MIN_APDU_LENGTH = 12;
 
-
-
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            startForeground(FOREGROUND_ID,buildForegroundNotification());
+
         return Service.START_STICKY_COMPATIBILITY;
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        notificationManager.cancel(FOREGROUND_ID);
     }
 
     @Override

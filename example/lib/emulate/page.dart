@@ -24,9 +24,14 @@ class _EmulateNfcTagPageState extends State<EmulateNfcTagPage> {
       body: Center(
           child: RaisedButton(
             child: const Text("Toggle scan"),
-            onPressed: () => {},
+            onPressed: startHostEmulation,
           )),
     );
   }
 
+
+  void startHostEmulation() async {
+    var running = await NFC.startHostEmulationService();
+    print(running);
+  }
 }
