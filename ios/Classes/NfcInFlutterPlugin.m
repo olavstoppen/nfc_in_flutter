@@ -1,10 +1,13 @@
 #import <CoreNFC/CoreNFC.h>
 #import "NfcInFlutterPlugin.h"
 
-@implementation NfcInFlutterPlugin {
+@implementation NfcInFlutterPlugin
+{
     dispatch_queue_t dispatchQueue;
 }
-+ (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar>*)registrar {
+
++ (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar>*)registrar
+{
     dispatch_queue_t dispatchQueue = dispatch_queue_create("me.andisemler.nfc_in_flutter.dispatch_queue", NULL);
     
     FlutterMethodChannel* channel = [FlutterMethodChannel
@@ -20,40 +23,59 @@
                                     channel:channel];
   
     [registrar addMethodCallDelegate:instance channel:channel];
-    [tagChannel setStreamHandler:instance->wrapper];
+    [tagChannel setStreamHandler:instance.wrapper];
 }
-    
-- (id)init:(dispatch_queue_t)dispatchQueue channel:(FlutterMethodChannel*)channel {
+
+- (id)init:(dispatch_queue_t)dispatchQueue channel:(FlutterMethodChannel*)channel
+{
     self->dispatchQueue = dispatchQueue;
-    if (@available(iOS 13.0, *)) {
-        wrapper = [[NFCWritableWrapperImpl alloc] init:channel dispatchQueue:dispatchQueue];
-    } else if (@available(iOS 11.0, *)) {
-        wrapper = [[NFCWrapperImpl alloc] init:channel dispatchQueue:dispatchQueue];
-    } else {
-        wrapper = [[NFCUnsupportedWrapper alloc] init];
+    if (@available(iOS 13.0, *))
+    {
+        self.wrapper = [[NFCWritableWrapperImpl alloc] init:channel dispatchQueue:dispatchQueue];
+    }
+    else if (@available(iOS 11.0, *))
+    {
+        self.wrapper = [[NFCWrapperImpl alloc] init:channel dispatchQueue:dispatchQueue];
+    }
+    else
+    {
+        self.wrapper = [[NFCUnsupportedWrapper alloc] init];
     }
     return self;
 }
 
-- (void)handleMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
+- (void)handleMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result
+{
     dispatch_async(dispatchQueue, ^{
         [self handleMethodCallAsync:call result:result];
     });
 }
     
-- (void)handleMethodCallAsync:(FlutterMethodCall*)call result:(FlutterResult)result {
-    if ([@"readNDEFSupported" isEqualToString:call.method]) {
-        result([NSNumber numberWithBool:[wrapper isEnabled]]);
-    } else if ([@"startNDEFReading" isEqualToString:call.method]) {
+- (void)handleMethodCallAsync:(FlutterMethodCall*)call result:(FlutterResult)result
+{
+    if ([@"readNDEFSupported" isEqualToString:call.method])
+    {
+        result([NSNumber numberWithBool:[self.wrapper isEnabled]]);
+    }
+    if ([@"readNDEFEnabled" isEqualToString:call.method])
+    {
+        result([NSNumber numberWithBool:[self.wrapper isEnabled]]);
+    }
+    else if ([@"startNDEFReading" isEqualToString:call.method])
+    {
         NSDictionary* args = call.arguments;
-        [wrapper startReading:[args[@"scan_once"] boolValue]];
+        [self.wrapper startReading:[args[@"scan_once"] boolValue]];
         result(nil);
-    } else if ([@"writeNDEF" isEqualToString:call.method]) {
+    }
+    else if ([@"writeNDEF" isEqualToString:call.method])
+    {
         NSDictionary* args = call.arguments;
-        [wrapper writeToTag:args completionHandler:^(FlutterError * _Nullable error) {
+        [self.wrapper writeToTag:args completionHandler:^(FlutterError * _Nullable error) {
             result(error);
         }];
-    } else {
+    }
+    else
+    {
         result(FlutterMethodNotImplemented);
     }
 }
@@ -62,16 +84,21 @@
 
 
 @implementation NFCWrapperBase
+@synthesize events;
+@synthesize session;
 
-- (void)readerSession:(nonnull NFCNDEFReaderSession *)session didInvalidateWithError:(nonnull NSError *)error API_AVAILABLE(ios(11.0)) {
+- (void)readerSession:(nonnull NFCNDEFReaderSession *)session didInvalidateWithError:(nonnull NSError *)error API_AVAILABLE(ios(11.0))
+{
+    NSLog(@"Session invalidated with error %@",[error localizedDescription]);
     // When a session has been invalidated it needs to be created again to work.
     // Since this function is called when it invalidates, the session can safely be removed.
     // A new session doesn't have to be created immediately as that will happen the next time
     // startReading() is called.
-    session = nil;
+    self.session = nil;
     
     // If the event stream is closed we can't send the error
-    if (events == nil) {
+    if (self.events == nil)
+    {
         return;
     }
     switch ([error code]) {
@@ -119,12 +146,13 @@
     // Make sure to close the stream, otherwise bad things will happen.
     // (onCancelWithArguments will never be called so the stream will
     //  not be reset and will be stuck in a 'User Canceled' error loop)
-    events(FlutterEndOfEventStream);
+    self.events(FlutterEndOfEventStream);
     return;
 }
 
-- (FlutterError * _Nullable)onListenWithArguments:(id _Nullable)arguments eventSink:(nonnull FlutterEventSink)events {
-    self->events = events;
+- (FlutterError * _Nullable)onListenWithArguments:(id _Nullable)arguments eventSink:(nonnull FlutterEventSink)events
+{
+    self.events = events;
     return nil;
 }
 
@@ -132,18 +160,21 @@
 // which most likely happens because of manuallyStopStream().
 // However if it was not triggered by manuallyStopStream(), it should invalidate
 // the reader session if activate
-- (FlutterError * _Nullable)onCancelWithArguments:(id _Nullable)arguments {
-    if (session != nil) {
-        [session invalidateSession];
-        session = nil;
+- (FlutterError * _Nullable)onCancelWithArguments:(id _Nullable)arguments
+{
+    if (self.session != nil)
+    {
+        [self.session invalidateSession];
+        self.session = nil;
     }
-    events = nil;
+    self.events = nil;
     return nil;
 }
 
 // formatMessageWithIdentifier turns a NFCNDEFMessage into a NSDictionary that
 // is ready to be sent to Flutter
-- (NSDictionary * _Nonnull)formatMessageWithIdentifier:(NSString* _Nonnull)identifier message:(NFCNDEFMessage* _Nonnull)message {
+- (NSDictionary * _Nonnull)formatMessageWithIdentifier:(NSString* _Nonnull)identifier message:(NFCNDEFMessage* _Nonnull)message
+{
     NSMutableArray<NSDictionary*>* records = [[NSMutableArray alloc] initWithCapacity:message.records.count];
     for (NFCNDEFPayload* payload in message.records) {
         NSString* type;
@@ -352,7 +383,8 @@
     return result;
 }
 
-- (NFCNDEFMessage* _Nonnull)formatNDEFMessageWithDictionary:(NSDictionary* _Nonnull)dictionary API_AVAILABLE(ios(13.0)) {
+- (NFCNDEFMessage* _Nonnull)formatNDEFMessageWithDictionary:(NSDictionary* _Nonnull)dictionary API_AVAILABLE(ios(13.0))
+{
     NSMutableArray<NFCNDEFPayload*>* ndefRecords = [[NSMutableArray alloc] init];
     
     NSDictionary *message = [dictionary valueForKey:@"message"];
@@ -429,24 +461,45 @@
 
 @implementation NFCWrapperImpl
 
-- (id)init:(FlutterMethodChannel*)methodChannel dispatchQueue:(dispatch_queue_t)dispatchQueue {
+- (id)init:(FlutterMethodChannel*)methodChannel dispatchQueue:(dispatch_queue_t)dispatchQueue
+{
     self->methodChannel = methodChannel;
     self->dispatchQueue = dispatchQueue;
     return self;
 }
     
-- (void)startReading:(BOOL)once {
-    if (session == nil) {
-        session = [[NFCNDEFReaderSession alloc]initWithDelegate:self queue:dispatchQueue invalidateAfterFirstRead: once];
+- (void)startReading:(BOOL)once
+{
+    if (!self.isEnabled)
+    {
+        NSLog(@"Unable to start reading, its not enabled");
     }
-    [self->session beginSession];
-}
     
-- (BOOL)isEnabled {
+    if (self.session == nil)
+    {
+        self.session = [[NFCNDEFReaderSession alloc]initWithDelegate:self queue:dispatchQueue invalidateAfterFirstRead: once];
+        self.session.alertMessage = @"Yay";
+    }
+    [self.session beginSession];
+    
+    if (self.session.ready)
+    {
+        NSLog(@"Session ready");
+    }
+    else
+    {
+        NSLog(@"Session not ready");
+    }
+}
+
+- (BOOL)isEnabled
+{
     return NFCNDEFReaderSession.readingAvailable;
 }
     
-- (void)readerSession:(nonnull NFCNDEFReaderSession *)session didDetectNDEFs:(nonnull NSArray<NFCNDEFMessage *> *)messages API_AVAILABLE(ios(11.0)) {
+- (void)readerSession:(nonnull NFCNDEFReaderSession *)session didDetectNDEFs:(nonnull NSArray<NFCNDEFMessage *> *)messages API_AVAILABLE(ios(11.0))
+{
+    NSLog(@"Did detect NDEFs");
     // Iterate through the messages and send them to Flutter with the following structure:
     // { Map
     //   "message_type": "ndef",
@@ -461,15 +514,17 @@
     for (NFCNDEFMessage* message in messages) {
         NSDictionary* result = [self formatMessageWithIdentifier:@"" message:message];
         dispatch_async(dispatch_get_main_queue(), ^{
-            if (self->events != nil) {
-               self->events(result);
+            if (self.events != nil) {
+               self.events(result);
             }
         });
     }
 }
 
 - (void)readerSession:(NFCNDEFReaderSession *)session
-        didDetectTags:(NSArray<__kindof id<NFCNDEFTag>> *)tags API_AVAILABLE(ios(13.0)) {
+        didDetectTags:(NSArray<__kindof id<NFCNDEFTag>> *)tags API_AVAILABLE(ios(13.0))
+{
+    NSLog(@"Did detect tags");
     // Iterate through the tags and send them to Flutter with the following structure:
     // { Map
     //   "id": "", // empty
@@ -483,13 +538,16 @@
     //   ]
     // }
     
-    for (id<NFCNDEFTag> tag in tags) {
-        [session connectToTag:tag completionHandler:^(NSError * _Nullable error) {
+    for (id<NFCNDEFTag> tag in tags)
+    {
+        [session connectToTag:tag completionHandler:^(NSError * _Nullable error)
+        {
             if (error != nil) {
                 NSLog(@"connect error: %@", error.localizedDescription);
                 return;
             }
-            [tag readNDEFWithCompletionHandler:^(NFCNDEFMessage * _Nullable message, NSError * _Nullable error) {
+            [tag readNDEFWithCompletionHandler:^(NFCNDEFMessage * _Nullable message, NSError * _Nullable error)
+            {
                 
                 if (error != nil) {
                     NSLog(@"ERROR: %@", error.localizedDescription);
@@ -498,8 +556,8 @@
                 
                 NSDictionary* result = [self formatMessageWithIdentifier:@"" message:message];
                 dispatch_async(dispatch_get_main_queue(), ^{
-                    if (self->events != nil) {
-                        self->events(result);
+                    if (self.events != nil) {
+                        self.events(result);
                     }
                 });
             }];
@@ -507,9 +565,14 @@
     }
 }
 
-- (void)readerSessionDidBecomeActive:(NFCNDEFReaderSession *)session API_AVAILABLE(ios(13.0)) {}
+- (void)readerSessionDidBecomeActive:(NFCNDEFReaderSession *)session API_AVAILABLE(ios(13.0))
+{
+    NSLog(@"Session became active");
+}
 
-- (void)writeToTag:(NSDictionary*)data completionHandler:(void (^_Nonnull) (FlutterError * _Nullable error))completionHandler {
+- (void)writeToTag:(NSDictionary*)data completionHandler:(void (^_Nonnull) (FlutterError * _Nullable error))completionHandler
+{
+    NSLog(@"Write to tag");
     completionHandler(nil);
 }
 
@@ -519,26 +582,29 @@
 
 @synthesize lastTag;
 
-- (void)readerSession:(NFCNDEFReaderSession *)session
-        didDetectTags:(NSArray<__kindof id<NFCNDEFTag>> *)tags API_AVAILABLE(ios(13.0)) {
+- (void)readerSession:(NFCNDEFReaderSession *)session didDetectTags:(NSArray<__kindof id<NFCNDEFTag>> *)tags API_AVAILABLE(ios(13.0))
+{
     [super readerSession:session didDetectTags:tags];
     
     // Set the last tags scanned
     lastTag = tags[[tags count] - 1];
 }
 
-- (void)writeToTag:(NSDictionary*)data completionHandler:(void (^_Nonnull) (FlutterError * _Nullable error))completionHandler {
+- (void)writeToTag:(NSDictionary*)data completionHandler:(void (^_Nonnull) (FlutterError * _Nullable error))completionHandler
+{
     NFCNDEFMessage* ndefMessage = [self formatNDEFMessageWithDictionary:data];
     
-    if (lastTag != nil) {
-        if (!lastTag.available) {
+    if (lastTag != nil)
+    {
+        if (!lastTag.available)
+        {
             completionHandler([FlutterError errorWithCode:@"NFCTagUnavailable" message:@"the tag is unavailable for writing" details:nil]);
             return;
         }
         
         // Connect to the tag.
         // The tag might already be connected to, but it doesn't hurt to do it again.
-        [session connectToTag:lastTag completionHandler:^(NSError * _Nullable error) {
+        [self.session connectToTag:lastTag completionHandler:^(NSError * _Nullable error) {
             if (error != nil) {
                 completionHandler([FlutterError errorWithCode:@"IOError" message:[NSString stringWithFormat:@"could not connect to tag: %@", error.localizedDescription] details:nil]);
                 return;
@@ -562,7 +628,7 @@
                                     break;
                                 case NFCNdefReaderSessionErrorTagSizeTooSmall: {
                                     NSDictionary *details = @{
-                                        @"maxSize": [NSNumber numberWithInt:capacity],
+                                        @"maxSize": [NSNumber numberWithUnsignedInteger:capacity],
                                     };
                                     flutterError = [FlutterError errorWithCode:@"NFCTagSizeTooSmallError" message:@"the tag's memory size is too small" details:details];
                                     break;

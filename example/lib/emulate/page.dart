@@ -1,8 +1,5 @@
 
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:nfc_in_flutter/nfc_in_flutter.dart';
 
 class EmulateNfcTagPage extends StatefulWidget {
   @override
@@ -11,12 +8,11 @@ class EmulateNfcTagPage extends StatefulWidget {
   }
 }
 
-class _EmulateNfcTagPageState extends State<EmulateNfcTagPage> {
-  StreamSubscription<NDEFMessage> _stream;
-
-
+class _EmulateNfcTagPageState extends State<EmulateNfcTagPage>
+{
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Emulate NFC TAG"),
