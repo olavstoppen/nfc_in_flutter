@@ -1,5 +1,6 @@
 package me.andisemler.nfc_in_flutter;
 
+import android.app.PendingIntent;
 import android.os.Bundle;
 
 import androidx.annotation.Nullable;
