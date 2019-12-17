@@ -1,22 +1,29 @@
 PODS:
   - Flutter (1.0.0)
-  - nfc_in_flutter (1.0.0):
+  - nfc_in_flutter (0.0.1):
     - Flutter
+    - VYNFCKit
+  - VYNFCKit (0.3.2)
 
 DEPENDENCIES:
-  - Flutter (from `.symlinks/flutter/ios`)
+  - Flutter (from `Flutter`)
   - nfc_in_flutter (from `.symlinks/plugins/nfc_in_flutter/ios`)
+
+SPEC REPOS:
+  trunk:
+    - VYNFCKit
 
 EXTERNAL SOURCES:
   Flutter:
-    :path: ".symlinks/flutter/ios"
+    :path: Flutter
   nfc_in_flutter:
     :path: ".symlinks/plugins/nfc_in_flutter/ios"
 
 SPEC CHECKSUMS:
   Flutter: 0e3d915762c693b495b44d77113d4970485de6ec
-  nfc_in_flutter: 4d93336a67fd4e814fc5581d0aedf2db5d56be6a
+  nfc_in_flutter: d385147c6f66c2070a463fe623f84f5f894171ef
+  VYNFCKit: 86a9b711fd1f34f6f7128a2a883cd58dbd781b9d
 
-PODFILE CHECKSUM: e8988baac3a50f787b9d3ed7ca44957b442f92a7
+PODFILE CHECKSUM: 1b66dae606f75376c5f2135a8290850eeb09ae83
 
 COCOAPODS: 1.8.3

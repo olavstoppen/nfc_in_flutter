@@ -12,15 +12,16 @@ class _ReadTagPageState extends State<ReadTagPage> {
   final model = ReadTagModel();
   NDEFMessage oneShotMessage;
 
-
   @override
-  void initState() {
-    model.start(reload);
+  void initState()
+  {
     super.initState();
+    model.start(reload);
   }
 
   @override
-  void dispose() {
+  void dispose()
+  {
     super.dispose();
     model.stop();
   }

@@ -32,7 +32,9 @@ class ReadTagModel{
 
       reload();
 
-      _continuousStream = NFC.readNDEF().listen((tag){
+      _continuousStream = NFC.readNDEF().listen((tag)
+      {
+        print("Scanned tag with id ${tag.id}");
         continuousTags.add(tag);
         reload();
       },
