@@ -1,7 +1,7 @@
 import Flutter
 import UIKit
 import CoreNFC
-import VYNFCKit
+import NFCSwift
 
 fileprivate let methodChannelName = "nfc_in_flutter"
 fileprivate let eventChannelName = "nfc_in_flutter/tags"
@@ -187,7 +187,7 @@ extension NFCModel : NFCNDEFReaderSessionDelegate
         
         for message in messages
         {
-            let result = message.toResult
+            let result = message.toResult            
             DispatchQueue.main.async { self.events?(result) }
         }
     }
@@ -334,9 +334,14 @@ extension NFCNDEFPayload
     
     var toResult : Dictionary<String,Any>?
     {
-        guard let parsed = VYNFCNDEFPayloadParser.parse(self) as? VYNFCNDEFTextPayload else { return nil }
-
+        guard let parsed = NDEFPayloadParser.parse(payload:self) as? NDEFTextPayload else { return nil }
+        
+        let payloadBytesLength = payload.count
+        var payloadBytes = [CUnsignedChar](repeating:0, count: payloadBytesLength)
+        payload.copyBytes(to: &payloadBytes, count: payloadBytesLength)
+        
         var id = String(data:identifier,encoding:.utf8) ?? ""
+        //id = getTagId()
         if id.isEmpty && parsed.text.hasPrefix(parsed.langCode)
         {
             id = String(parsed.text.dropFirst(parsed.langCode.count))
@@ -350,4 +355,47 @@ extension NFCNDEFPayload
         res["payload"] = parsed.text
         return res
     }
+    
+    func getTagId() -> String
+    {
+        var uid: String = ""
+        var uuidPadded : Data = identifier
+        //We reverse the order
+        for (i,_) in uuidPadded.enumerated()
+        {
+            uuidPadded.insert(uuidPadded.remove(at:i),at:0)
+        }
+        for (_, element) in uuidPadded.enumerated()
+        {
+            let tag : String = String(element, radix:16)
+            //We add the missing 0 in case the number is < 10. It can be done with bitwise operations too.
+            if(tag.count < 2) {
+                uid.append("0"+tag)
+            }
+            else
+            {
+                uid.append(tag)
+            }
+        }
+        return uid
+    }
+}
+
+extension String
+{
+    init(bytesArray: [UInt8], encoding: String.Encoding = .utf8)
+    {
+        let dataUtf = NSData(bytes: bytesArray, length: bytesArray.count)
+        self = String(data: dataUtf as Data, encoding: encoding) ?? ""
+    }
+}
+
+func subArray(array: [CUnsignedChar], from: Int, length: Int) -> [CUnsignedChar]
+{
+    if length > 0, array.count-1 >= from+length-1
+    {
+        let subArray = Array(array[from...from+length-1]) as [CUnsignedChar]
+        return subArray
+    }
+    return [0]
 }
