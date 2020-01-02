@@ -27,7 +27,10 @@ class _ReadTagPageState extends State<ReadTagPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
+    String error = model.error;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Read NFC"),
@@ -46,9 +49,12 @@ class _ReadTagPageState extends State<ReadTagPage> {
               child: Text(model.continuousButtonTitle),
               textColor: Colors.blue,
               color: Colors.white,
-              onPressed: continuousClicked,
+              onPressed: error == null ? continuousClicked : null,
             ),
-            Text("Results"),
+            if (error != null)
+              Text(error),
+            if (error == null)
+              Text("Results"),
             buildStreamResults()
           ],
         )
@@ -89,12 +95,15 @@ class _ReadTagPageState extends State<ReadTagPage> {
     );
   }
 
-  void continuousClicked() {
+  void continuousClicked()
+  {
     model.toggleContinuous();
   }
 
-  void reload() {
-    setState(() {
+  void reload()
+  {
+    if (!mounted) return;
+    setState((){
 
     });
   }
