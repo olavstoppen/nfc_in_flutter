@@ -46,6 +46,7 @@ class ReadTagModel
     if(isReadingContinuous)
     {
       stopContinuous();
+      isReadingContinuous = false;
     }
     else
     {
