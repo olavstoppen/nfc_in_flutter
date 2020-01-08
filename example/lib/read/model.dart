@@ -51,7 +51,7 @@ class ReadTagModel
     else
     {
       continuousTags.clear();
-      stopContinuous();
+      //stopContinuous();
       isReadingContinuous = true;
 
       reload();
@@ -63,6 +63,7 @@ class ReadTagModel
         reload();
       },
         onError: (e){
+          print('scannedTag onError: $e');
           _continuousStream.cancel();
           _continuousStream = null;
           continuousTags.clear();

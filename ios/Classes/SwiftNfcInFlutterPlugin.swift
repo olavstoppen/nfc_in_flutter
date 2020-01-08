@@ -64,6 +64,9 @@ public class SwiftNfcInFlutterPlugin: NSObject, FlutterPlugin
 
 class NFCModel : NSObject
 {
+    var events : FlutterEventSink?
+    var session : NFCSession?
+    
     var isSupported : Bool
     {
         guard #available(iOS 11, *) else { return false }
@@ -81,6 +84,7 @@ class NFCModel : NSObject
         log(" StartReading, scanOnce = \(scanOnce)");
         if (session != nil)
         {
+            log("++ Session != nil, invalidating")
             session?.invalidate()
             session = nil
         }
@@ -89,6 +93,7 @@ class NFCModel : NSObject
         {
             if #available(iOS 13.0, *)
             {
+                log("Create NFCNDEFReaderSession")
                 session = NFCTaggedSessionModel(session:NFCNDEFReaderSession(delegate:self,queue:nil,invalidateAfterFirstRead:scanOnce))
             }
             else if #available(iOS 11.0, *)
@@ -105,9 +110,6 @@ class NFCModel : NSObject
         
         result(nil)
     }
-    
-    var events : FlutterEventSink?
-    var session : NFCSession?
 }
 
 // MARK: FlutterMethodHandler
@@ -147,7 +149,7 @@ extension NFCModel : FlutterStreamHandler
     {
         session?.invalidate()
         session = nil
-        events = nil
+        self.events = nil
         return nil
     }
 }
@@ -168,17 +170,16 @@ extension NFCModel : NFCNDEFReaderSessionDelegate
             switch (error.code)
             {
             case .readerSessionInvalidationErrorFirstNDEFTagRead:
-                events?(FlutterEndOfEventStream)
+                DispatchQueue.main.async { self.events?(FlutterEndOfEventStream) }
                 return
-            default: events?(FlutterError(error))
+            default: DispatchQueue.main.async { self.events?(FlutterError(error)) }
             }
         }
         else
         {
-            events?(FlutterError(error))
+            DispatchQueue.main.async { self.events?(FlutterError(error)) }
         }
-        
-        events?(FlutterEndOfEventStream)
+        DispatchQueue.main.async { self.events?(FlutterEndOfEventStream) }
     }
     
     func readerSession(_ session: NFCNDEFReaderSession, didDetectNDEFs messages: [NFCNDEFMessage])
@@ -239,7 +240,6 @@ extension NFCModel : NFCNDEFReaderSessionDelegate
                             self.events?(result)
                         }
                     }
-                    
                     session.alertMessage = statusMessage
                     session.invalidate()
                 })
