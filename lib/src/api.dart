@@ -75,7 +75,7 @@ class NFC {
       {
 
       /// once will stop reading after the first tag has been read.
-      bool once = true,
+      bool once = false,
 
       /// throwOnUserCancel decides if a [NFCUserCanceledSessionException] error
       /// should be thrown on iOS when the user clicks Cancel/Done.
