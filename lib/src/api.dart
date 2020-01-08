@@ -79,7 +79,7 @@ class NFC {
 
       /// throwOnUserCancel decides if a [NFCUserCanceledSessionException] error
       /// should be thrown on iOS when the user clicks Cancel/Done.
-      bool throwOnUserCancel = true,
+      bool throwOnUserCancel = false,
 
       /// readerMode specifies which mode the reader should use. By default it
       /// will use the normal mode, which scans for tags normally without
