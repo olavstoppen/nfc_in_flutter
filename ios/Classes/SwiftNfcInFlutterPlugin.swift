@@ -211,6 +211,7 @@ extension NFCModel : NFCNDEFReaderSessionDelegate
         let tag = tags.first!
         session.connect(to: tag, completionHandler: { (error: Error?) in
             if nil != error {
+                log("Error: \(error.debugDescription)")
                 session.alertMessage = "Unable to connect to tag."
                 session.invalidate()
                 return
@@ -232,7 +233,7 @@ extension NFCModel : NFCNDEFReaderSessionDelegate
                     if nil != error || nil == message {
                         statusMessage = "Fail to read NDEF from tag"
                     } else {
-                        statusMessage = "Found 1 NDEF message"
+                        statusMessage = "RFID tag detected"
                         let result = message?.toResult
                         DispatchQueue.main.async {
                             // Process detected NFCNDEFMessage objects.
