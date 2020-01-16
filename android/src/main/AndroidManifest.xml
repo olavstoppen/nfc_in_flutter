@@ -2,7 +2,7 @@
   package="me.andisemler.nfc_in_flutter">
     <uses-permission android:name="android.permission.NFC" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-feature android:name="android.hardware.nfc.hce" android:required="true" />
+    <uses-feature android:name="android.hardware.nfc.hce" android:required="false" />
 
     <application
         android:theme = "@style/no_action_bar">
