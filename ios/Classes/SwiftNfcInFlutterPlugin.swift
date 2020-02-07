@@ -147,8 +147,11 @@ extension NFCModel : FlutterStreamHandler
 
     func onCancel(withArguments arguments: Any?) -> FlutterError?
     {
-        session?.invalidate()
-        session = nil
+        if session != nil {
+            //session?.invalidate()
+            session = nil
+        }
+        
         self.events = nil
         return nil
     }
