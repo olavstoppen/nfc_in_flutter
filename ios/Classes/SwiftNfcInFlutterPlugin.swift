@@ -81,7 +81,7 @@ class NFCModel : NSObject
     func startReading(_ scanOnce:Bool, result:(FlutterResult?)->Void)
     {
         guard isEnabled else { result(nil); return }
-        log(" StartReading, scanOnce = \(scanOnce)");
+        //log(" StartReading, scanOnce = \(scanOnce)");
         if (session != nil)
         {
             log("++ Session != nil, invalidating")
@@ -93,7 +93,6 @@ class NFCModel : NSObject
         {
             if #available(iOS 13.0, *)
             {
-                log("Create NFCNDEFReaderSession")
                 session = NFCTaggedSessionModel(session:NFCNDEFReaderSession(delegate:self,queue:nil,invalidateAfterFirstRead:scanOnce))
             }
             else if #available(iOS 11.0, *)
@@ -148,10 +147,8 @@ extension NFCModel : FlutterStreamHandler
     func onCancel(withArguments arguments: Any?) -> FlutterError?
     {
         if session != nil {
-            //session?.invalidate()
             session = nil
         }
-        
         self.events = nil
         return nil
     }
@@ -164,8 +161,7 @@ extension NFCModel : NFCNDEFReaderSessionDelegate
 {
     func readerSession(_ session: NFCNDEFReaderSession, didInvalidateWithError error: Error)
     {
-        log("Session invalidated with error \(error)")
-        
+        //log("Session invalidated with error \(error)")
         self.session = nil
         
         if let error = error as? NFCReaderError
@@ -182,7 +178,7 @@ extension NFCModel : NFCNDEFReaderSessionDelegate
         {
             DispatchQueue.main.async { self.events?(FlutterError(error)) }
         }
-        DispatchQueue.main.async { self.events?(FlutterEndOfEventStream) }
+        //DispatchQueue.main.async { self.events?(FlutterEndOfEventStream) }
     }
     
     func readerSession(_ session: NFCNDEFReaderSession, didDetectNDEFs messages: [NFCNDEFMessage])
@@ -240,7 +236,7 @@ extension NFCModel : NFCNDEFReaderSessionDelegate
                         let result = message?.toResult
                         DispatchQueue.main.async {
                             // Process detected NFCNDEFMessage objects.
-                            
+                            //log("-> Events: \(String(describing: self.events))")
                             self.events?(result)
                         }
                     }
@@ -259,7 +255,8 @@ extension NFCModel : NFCNDEFReaderSessionDelegate
     @available(iOS 13.0, *)
     func readerSessionDidBecomeActive(_ session: NFCNDEFReaderSession)
     {
-         log("Session became active")
+        let isSetup = self.events != nil ? true : false
+        log("Session became active, events: \(isSetup)")
     }
 }
 
