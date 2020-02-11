@@ -52,7 +52,7 @@ class ReadTagModel
     {
       continuousTags.clear();
       //stopContinuous();
-      isReadingContinuous = true;
+      //isReadingContinuous = true;
 
       reload();
 
@@ -62,12 +62,15 @@ class ReadTagModel
         continuousTags.add(tag);
         reload();
       },
-        onError: (e){
-          print('scannedTag onError: $e');
-          _continuousStream.cancel();
-          _continuousStream = null;
-          continuousTags.clear();
-        },
+      onError: (e){
+        print('scannedTag onError: $e');
+        _continuousStream.cancel();
+        _continuousStream = null;
+        continuousTags.clear();
+      },
+      onDone: () {
+        //print('scannedTag onDone');
+      }
       );
     }
   }
