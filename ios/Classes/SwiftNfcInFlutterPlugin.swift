@@ -64,6 +64,9 @@ public class SwiftNfcInFlutterPlugin: NSObject, FlutterPlugin
 
 class NFCModel : NSObject
 {
+    var events : FlutterEventSink?
+    var session : NFCSession?
+    
     var isSupported : Bool
     {
         guard #available(iOS 11, *) else { return false }
@@ -78,9 +81,10 @@ class NFCModel : NSObject
     func startReading(_ scanOnce:Bool, result:(FlutterResult?)->Void)
     {
         guard isEnabled else { result(nil); return }
-        
+        //log(" StartReading, scanOnce = \(scanOnce)");
         if (session != nil)
         {
+            log("++ Session != nil, invalidating")
             session?.invalidate()
             session = nil
         }
@@ -105,9 +109,6 @@ class NFCModel : NSObject
         
         result(nil)
     }
-    
-    var events : FlutterEventSink?
-    var session : NFCSession?
 }
 
 // MARK: FlutterMethodHandler
@@ -145,9 +146,10 @@ extension NFCModel : FlutterStreamHandler
 
     func onCancel(withArguments arguments: Any?) -> FlutterError?
     {
-        session?.invalidate()
-        session = nil
-        events = nil
+        if session != nil {
+            session = nil
+        }
+        self.events = nil
         return nil
     }
 }
@@ -159,8 +161,7 @@ extension NFCModel : NFCNDEFReaderSessionDelegate
 {
     func readerSession(_ session: NFCNDEFReaderSession, didInvalidateWithError error: Error)
     {
-        log("Session invalidated with error \(error)")
-        
+        //log("Session invalidated with error \(error)")
         self.session = nil
         
         if let error = error as? NFCReaderError
@@ -168,17 +169,16 @@ extension NFCModel : NFCNDEFReaderSessionDelegate
             switch (error.code)
             {
             case .readerSessionInvalidationErrorFirstNDEFTagRead:
-                events?(FlutterEndOfEventStream)
+                DispatchQueue.main.async { self.events?(FlutterEndOfEventStream) }
                 return
-            default: events?(FlutterError(error))
+            default: DispatchQueue.main.async { self.events?(FlutterError(error)) }
             }
         }
         else
         {
-            events?(FlutterError(error))
+            DispatchQueue.main.async { self.events?(FlutterError(error)) }
         }
-        
-        events?(FlutterEndOfEventStream)
+        //DispatchQueue.main.async { self.events?(FlutterEndOfEventStream) }
     }
     
     func readerSession(_ session: NFCNDEFReaderSession, didDetectNDEFs messages: [NFCNDEFMessage])
@@ -187,7 +187,8 @@ extension NFCModel : NFCNDEFReaderSessionDelegate
         
         for message in messages
         {
-            let result = message.toResult            
+            let result = message.toResult
+            log("result: \(String(describing: result))")
             DispatchQueue.main.async { self.events?(result) }
         }
     }
@@ -195,37 +196,55 @@ extension NFCModel : NFCNDEFReaderSessionDelegate
     @available(iOS 13.0, *)
     func readerSession(_ session: NFCNDEFReaderSession, didDetect tags: [NFCNDEFTag])
     {
-        log("Did detect tags")
+        if tags.count > 1 {
+            // Restart polling in 500ms
+            let retryInterval = DispatchTimeInterval.milliseconds(500)
+            session.alertMessage = "More than 1 tag is detected, please remove all tags and try again."
+            DispatchQueue.global().asyncAfter(deadline: .now() + retryInterval, execute: {
+                session.restartPolling()
+            })
+            return
+        }
         
-        for tag in tags
-        {
-            session.connect(to:tag)
-            { error in
-                if let error = error
-                {
-                    log("Tag Connection Error: \(error)")
+        // Connect to the found tag and perform NDEF message reading
+        let tag = tags.first!
+        session.connect(to: tag, completionHandler: { (error: Error?) in
+            if nil != error {
+                log("Error: \(error.debugDescription)")
+                session.alertMessage = "Unable to connect to tag."
+                session.invalidate()
+                return
+            }
+            
+            tag.queryNDEFStatus(completionHandler: { (ndefStatus: NFCNDEFStatus, capacity: Int, error: Error?) in
+                if .notSupported == ndefStatus {
+                    session.alertMessage = "Tag is not NDEF compliant"
+                    session.invalidate()
+                    return
+                } else if nil != error {
+                    session.alertMessage = "Unable to query NDEF status of tag"
+                    session.invalidate()
                     return
                 }
                 
-                tag.readNDEF()
-                { msg, error in
-                    if let error = error
-                    {
-                        log("Tag Read Error: \(error)")
-                        return
+                tag.readNDEF(completionHandler: { (message: NFCNDEFMessage?, error: Error?) in
+                    var statusMessage: String
+                    if nil != error || nil == message {
+                        statusMessage = "Fail to read NDEF from tag"
+                    } else {
+                        statusMessage = "RFID tag detected"
+                        let result = message?.toResult
+                        DispatchQueue.main.async {
+                            // Process detected NFCNDEFMessage objects.
+                            //log("-> Events: \(String(describing: self.events))")
+                            self.events?(result)
+                        }
                     }
-                    if let message = msg
-                    {
-                        let result = message.toResult
-                        DispatchQueue.main.async { self.events?(result) }
-                    }
-                    else
-                    {
-                        log("Tag Read Message was nil")
-                    }
-                }
-            }
-        }
+                    session.alertMessage = statusMessage
+                    session.invalidate()
+                })
+            })
+        })
         
         if let sess = self.session as? NFCTaggedSessionModel
         {
@@ -236,7 +255,8 @@ extension NFCModel : NFCNDEFReaderSessionDelegate
     @available(iOS 13.0, *)
     func readerSessionDidBecomeActive(_ session: NFCNDEFReaderSession)
     {
-         log("Session became active")
+        let isSetup = self.events != nil ? true : false
+        log("Session became active, events: \(isSetup)")
     }
 }
 
@@ -336,6 +356,9 @@ extension NFCNDEFPayload
     {
         guard let parsed = NDEFPayloadParser.parse(payload:self) as? NDEFTextPayload else { return nil }
         
+        let txt = parsed.text
+        let langCode = parsed.langCode
+        print("Parsed text: \(txt) Lang code: \(langCode)")
         let payloadBytesLength = payload.count
         var payloadBytes = [CUnsignedChar](repeating:0, count: payloadBytesLength)
         payload.copyBytes(to: &payloadBytes, count: payloadBytesLength)
