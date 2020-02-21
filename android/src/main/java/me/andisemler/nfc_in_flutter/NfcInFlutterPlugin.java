@@ -48,6 +48,7 @@ public class NfcInFlutterPlugin implements MethodCallHandler,
         PluginRegistry.NewIntentListener,
         NfcAdapter.ReaderCallback {
 
+    private static final char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
     private static final String NORMAL_READER_MODE = "normal";
     private static final String DISPATCH_READER_MODE = "dispatch";
     private final int DEFAULT_READER_FLAGS = NfcAdapter.FLAG_READER_NFC_A | NfcAdapter.FLAG_READER_NFC_B | NfcAdapter.FLAG_READER_NFC_F | NfcAdapter.FLAG_READER_NFC_V;
@@ -240,6 +241,16 @@ public class NfcInFlutterPlugin implements MethodCallHandler,
         events = null;
     }
 
+    private static String bytesToHex(byte[] bytes) {
+        char[] hexChars = new char[bytes.length * 2];
+        for (int j = 0; j < bytes.length; j++) {
+            int v = bytes[j] & 0xFF;
+            hexChars[j * 2] = HEX_ARRAY[v >>> 4];
+            hexChars[j * 2 + 1] = HEX_ARRAY[v & 0x0F];
+        }
+        return new String(hexChars);
+    }
+
     @Override
     public void onTagDiscovered(Tag tag) {
         lastTag = tag;
@@ -252,7 +263,16 @@ public class NfcInFlutterPlugin implements MethodCallHandler,
         try {
             ndef.connect();
             NdefMessage message = ndef.getNdefMessage();
-            if (message == null) {
+            if(message != null)
+            {
+                eventSuccess(formatNDEFMessageToResult(ndef,ndef.getNdefMessage()));
+            }
+            else if (hasTagId(ndef) && isNDEF(ndef))
+            {
+                eventSuccess(formatSimpleNDEFMessageToResult(bytesToHex(ndef.getTag().getId()),"ndef"));
+            }
+            else
+            {
                 return;
             }
             try {
@@ -261,7 +281,6 @@ public class NfcInFlutterPlugin implements MethodCallHandler,
             } catch (IOException e) {
                 Log.e(LOG_TAG, "close NDEF tag error: " + e.getMessage());
             }
-            eventSuccess(formatNDEFMessageToResult(ndef, message));
         } catch (IOException e) {
             Map<String, Object> details = new HashMap<>();
             details.put("fatal", true);
@@ -278,6 +297,23 @@ public class NfcInFlutterPlugin implements MethodCallHandler,
                 }
             }
         }
+    }
+
+    private boolean hasTagId(Ndef ndef) {
+        return ndef.getTag().getId() != null && ndef.getTag().getId().length > 0;
+    }
+
+    private boolean isNDEF(Ndef ndef)
+    {
+        if(ndef.getTag() == null) return false;
+        if(ndef.getTag().getTechList() == null) return false;
+
+        for(String type : ndef.getTag().getTechList())
+        {
+            if(type.toLowerCase().contains("ndef"))
+                return true;
+        }
+        return false;
     }
 
     @Override
@@ -304,13 +340,30 @@ public class NfcInFlutterPlugin implements MethodCallHandler,
         } catch (IOException e) {
             Log.e(LOG_TAG, "close NDEF tag error: " + e.getMessage());
         }
-        Map result = formatNDEFMessageToResult(ndef, message);
-        eventSuccess(result);
+        if(message != null)
+        {
+            Map result = formatNDEFMessageToResult(ndef,message);
+            eventSuccess(result);
+        }
+        else if(hasTagId(ndef) && isNDEF(ndef))
+        {
+            Map result = formatSimpleNDEFMessageToResult(bytesToHex(ndef.getTag().getId()),"ndef");
+            eventSuccess(result);
+        }
     }
 
-    private Map<String, Object> formatNDEFMessageToResult(Ndef ndef, NdefMessage message) {
+    private Map<String, Object> formatSimpleNDEFMessageToResult(String tagId, String messageType)
+    {
+        final Map<String, Object> result = new HashMap<>();
+        result.put("id", tagId);
+        result.put("message_type", messageType);
+        return result;
+    }
+
+    private Map<String, Object> formatNDEFMessageToResult(Ndef ndef,NdefMessage message) {
         final Map<String, Object> result = new HashMap<>();
         List<Map<String, String>> records = new ArrayList<>();
+
         for (NdefRecord record : message.getRecords()) {
             Map<String, String> recordMap = new HashMap<>();
             byte[] recordPayload = record.getPayload();

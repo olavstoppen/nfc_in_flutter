@@ -13,6 +13,11 @@ class NFC {
   static Stream<dynamic> _tagStream;
 
   static void _createTagStream() {
+    var test = _eventChannel.receiveBroadcastStream().where((tag) {
+      // In the future when more tag types are supported, this must be changed.
+      assert(tag is Map);
+      return tag["message_type"] == "ndef";
+    });
     _tagStream = _eventChannel.receiveBroadcastStream().where((tag) {
       // In the future when more tag types are supported, this must be changed.
       assert(tag is Map);
@@ -21,7 +26,8 @@ class NFC {
       assert(tag is Map);
 
       List<NDEFRecord> records = [];
-      for (var record in tag["records"]) {
+      var recs = tag["records"] ?? [];
+      for (var record in recs) {
         NFCTypeNameFormat tnf;
         switch (record["tnf"]) {
           case "empty":
@@ -56,7 +62,7 @@ class NFC {
         ));
       }
 
-      return NDEFMessage._internal(tag["id"], tag["type"], records);
+      return NDEFMessage._internal(tag["id"], tag["type"] ?? "unknown", records ?? List<NDEFRecord>());
     });
   }
 
@@ -290,7 +296,7 @@ abstract class NFCTag {
 class NDEFMessage implements NFCMessage {
   final String id;
   String type;
-  final List<NDEFRecord> records;
+  List<NDEFRecord> records = List<NDEFRecord>();
 
   NDEFMessage.withRecords(this.records, {this.id});
 
@@ -301,6 +307,7 @@ class NDEFMessage implements NFCMessage {
   // payload returns the payload of the first non-empty record. If all records
   // are empty it will return null.
   String get payload {
+    if(records == null) return null;
     for (var record in records) {
       if (record.payload != "") {
         return record.payload;
@@ -312,6 +319,7 @@ class NDEFMessage implements NFCMessage {
   // data returns the contents of the first non-empty record. If all records
   // are empty it will return null.
   String get data {
+    if(records == null) return null;
     for (var record in records) {
       if (record.data != "") {
         return record.data;
@@ -331,8 +339,8 @@ class NDEFMessage implements NFCMessage {
   Map<String, dynamic> _toMap() {
     return {
       "id": id,
-      "type": type,
-      "records": records.map((record) => record._toMap()).toList(),
+      "type": type ?? null,
+      "records": records != null ? records.map((record) => record._toMap()).toList() : List<NDEFRecord>() ,
     };
   }
 }
