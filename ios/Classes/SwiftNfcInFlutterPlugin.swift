@@ -93,7 +93,8 @@ class NFCModel : NSObject
         {
             if #available(iOS 13.0, *)
             {
-                session = NFCTaggedSessionModel(session:NFCNDEFReaderSession(delegate:self,queue:nil,invalidateAfterFirstRead:scanOnce))
+                let s = NFCTagReaderSession(pollingOption:[.iso14443,.iso15693,.iso18092],delegate:self,queue:nil) ?? NFCNDEFReaderSession(delegate:self,queue:nil,invalidateAfterFirstRead:scanOnce)
+                session = NFCTaggedSessionModel(session:s)
             }
             else if #available(iOS 11.0, *)
             {
@@ -154,6 +155,68 @@ extension NFCModel : FlutterStreamHandler
     }
 }
 
+// MARK: NFCTagReaderSessionDelegate
+
+@available(iOS 13.0, *)
+extension NFCModel : NFCTagReaderSessionDelegate
+{
+    func tagReaderSession(_ session: NFCTagReaderSession, didInvalidateWithError error: Error)
+    {
+        log("NFCTagReaderSession Did invalidate with error - \(error)")
+        
+        self.session = nil
+        
+        DispatchQueue.main.async { self.events?(FlutterError(error)) }
+    }
+    
+    func tagReaderSessionDidBecomeActive(_ session: NFCTagReaderSession)
+    {
+        log("NFCTagReaderSession did become active")
+    }
+
+    func tagReaderSession(_ session: NFCTagReaderSession, didDetect tags: [NFCTag])
+    {
+         log("Did detect \(tags.count) tags")
+        
+        guard let tag = tags.first else { return }
+        
+        switch tag
+        {
+        case .feliCa(let felicia):
+            log("FeliCa tag detected - \(felicia)")
+            session.alertMessage = "FeliCa Tags are not supported"
+            session.invalidate()
+        case .iso7816(let iso):
+            log("iso7816 tag detected - \(iso)")
+            read(session,didDetectTag:iso,withIdentifier:iso.identifier)
+        case .iso15693(let iso):
+            log("iso15693 tag detected - \(iso)")
+            read(session,didDetectTag:iso,withIdentifier:iso.identifier)
+        case .miFare(let mifare):
+            log("miFare tag detected - \(mifare)")
+            read(session,didDetectTag:mifare,withIdentifier:mifare.identifier)
+        @unknown default:
+            session.alertMessage = "Tag is not supported"
+            session.invalidate()
+        }
+    }
+    
+    func read(_ session:NFCTagReaderSession, didDetectTag tag:NFCNDEFTag, withIdentifier identifier:Data)
+    {
+        if let result = NFCTagResult(data:identifier)
+        {
+            log("Read Tag identifier - \(result.id)")
+            events?(result.dict)
+        }
+        else
+        {
+            log("Failed to convert identifier bytes to string")
+            session.alertMessage = "Tag is not supported"
+            session.invalidate()
+        }
+    }
+}
+
 // MARK: NFCNDEFReaderSessionDelegate
 
 @available(iOS 11.0, *)
@@ -196,7 +259,10 @@ extension NFCModel : NFCNDEFReaderSessionDelegate
     @available(iOS 13.0, *)
     func readerSession(_ session: NFCNDEFReaderSession, didDetect tags: [NFCNDEFTag])
     {
-        if tags.count > 1 {
+        log("Detected \(tags.count) tags")
+        
+        if tags.count > 1
+        {
             // Restart polling in 500ms
             let retryInterval = DispatchTimeInterval.milliseconds(500)
             session.alertMessage = "More than 1 tag is detected, please remove all tags and try again."
@@ -206,11 +272,31 @@ extension NFCModel : NFCNDEFReaderSessionDelegate
             return
         }
         
-        // Connect to the found tag and perform NDEF message reading
-        let tag = tags.first!
+        read(tag:tags.first!,session:session)
+        
+        if let sess = self.session as? NFCTaggedSessionModel
+        {
+            sess.lastTag = tags.last
+        }
+    }
+
+    @available(iOS 13.0, *)
+    func readerSessionDidBecomeActive(_ session: NFCNDEFReaderSession)
+    {
+        let isSetup = self.events != nil ? true : false
+        log("Session became active, events: \(isSetup)")
+    }
+    
+    @available(iOS 13.0, *)
+    func read(tag:NFCNDEFTag,session:NFCNDEFReaderSession)
+    {
+        log("Connecting to tag \(tag)")
+        
         session.connect(to: tag, completionHandler: { (error: Error?) in
-            if nil != error {
-                log("Error: \(error.debugDescription)")
+            
+            if let error = error
+            {
+                log("Error: \(error)")
                 session.alertMessage = "Unable to connect to tag."
                 session.invalidate()
                 return
@@ -228,10 +314,19 @@ extension NFCModel : NFCNDEFReaderSessionDelegate
                 }
                 
                 tag.readNDEF(completionHandler: { (message: NFCNDEFMessage?, error: Error?) in
-                    var statusMessage: String
-                    if nil != error || nil == message {
-                        statusMessage = "Fail to read NDEF from tag"
-                    } else {
+                    var statusMessage : String
+                    if let error = error
+                    {
+                        statusMessage = "Failed to read NDEF from tag"
+                        log("Failed to read NDEF from tag - \(error)")
+                    }
+                    else if message == nil
+                    {
+                        statusMessage = "Failed to read NDEF from tag"
+                        log("Failed to read NDEF from tag - message is nil")
+                    }
+                    else
+                    {
                         statusMessage = "RFID tag detected"
                         let result = message?.toResult
                         DispatchQueue.main.async {
@@ -245,18 +340,6 @@ extension NFCModel : NFCNDEFReaderSessionDelegate
                 })
             })
         })
-        
-        if let sess = self.session as? NFCTaggedSessionModel
-        {
-            sess.lastTag = tags.last
-        }
-    }
-
-    @available(iOS 13.0, *)
-    func readerSessionDidBecomeActive(_ session: NFCNDEFReaderSession)
-    {
-        let isSetup = self.events != nil ? true : false
-        log("Session became active, events: \(isSetup)")
     }
 }
 
@@ -285,12 +368,34 @@ class NFCNotSupportedSessionModel : NFCSession
     func invalidate(){}
 }
 
+class NFCTagResult
+{
+    let id : String
+    
+    init(id:String)
+    {
+        self.id = id
+    }
+    
+    convenience init?(data:Data)
+    {
+        let id = data.map { String(format:"%02x",$0) }.joined()
+        if id.isEmpty { return nil }
+        self.init(id:id)
+    }
+    
+    var dict : Dictionary<String,Any>
+    {
+        return ["id":id]
+    }
+}
+
 @available(iOS 11.0, *)
 class NFCSessionModel : NFCSession
 {
-    var session : NFCNDEFReaderSession
+    var session : NFCReaderSession
     
-    init(session:NFCNDEFReaderSession)
+    init(session:NFCReaderSession)
     {
         self.session = session
     }
