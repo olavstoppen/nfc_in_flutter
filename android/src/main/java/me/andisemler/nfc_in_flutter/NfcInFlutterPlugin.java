@@ -17,6 +17,8 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -51,7 +53,6 @@ public class NfcInFlutterPlugin implements MethodCallHandler,
     private static final char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
     private static final String NORMAL_READER_MODE = "normal";
     private static final String DISPATCH_READER_MODE = "dispatch";
-    private final int DEFAULT_READER_FLAGS = NfcAdapter.FLAG_READER_NFC_A | NfcAdapter.FLAG_READER_NFC_B | NfcAdapter.FLAG_READER_NFC_F | NfcAdapter.FLAG_READER_NFC_V;
     private static final String LOG_TAG = "NfcInFlutterPlugin";
 
     private final Activity activity;
@@ -78,14 +79,14 @@ public class NfcInFlutterPlugin implements MethodCallHandler,
     }
 
     @Override
-    public void onMethodCall(MethodCall call, Result result) {
+    public void onMethodCall(MethodCall call, @NotNull Result result) {
         switch (call.method) {
             case "readNDEFEnabled":
                 result.success(nfcIsEnabled());
             case "readNDEFSupported":
                 result.success(nfcIsSupported());
                 break;
-            case "startNDEFReading":
+            case "startReading":
                 if (!(call.arguments instanceof HashMap)) {
                     result.error("MissingArguments", "startNDEFReading was called with no arguments", "");
                     return;
@@ -191,7 +192,7 @@ public class NfcInFlutterPlugin implements MethodCallHandler,
         adapter = NfcAdapter.getDefaultAdapter(activity);
         if (adapter == null) return;
         Bundle bundle = new Bundle();
-        int flags = DEFAULT_READER_FLAGS;
+        int flags = NfcAdapter.FLAG_READER_NFC_A | NfcAdapter.FLAG_READER_NFC_B | NfcAdapter.FLAG_READER_NFC_F | NfcAdapter.FLAG_READER_NFC_V;
         if (noSounds) {
             flags = flags | NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS;
         }
@@ -255,31 +256,38 @@ public class NfcInFlutterPlugin implements MethodCallHandler,
     public void onTagDiscovered(Tag tag) {
         lastTag = tag;
         Ndef ndef = Ndef.get(tag);
-        if (ndef == null) {
-            // tag is not in NDEF format; skip!
-            return;
-        }
+
         boolean closed = false;
         try {
-            ndef.connect();
-            NdefMessage message = ndef.getNdefMessage();
-            if(message != null)
+            if(ndef != null)
             {
-                eventSuccess(formatNDEFMessageToResult(ndef,ndef.getNdefMessage()));
-            }
-            else if (hasTagId(ndef) && isNDEF(ndef))
-            {
-                eventSuccess(formatSimpleNDEFMessageToResult(bytesToHex(ndef.getTag().getId()),"ndef"));
+                ndef.connect();
+                NdefMessage message = ndef.getNdefMessage();
+                if(message != null)
+                {
+                    eventSuccess(formatNDEFMessageToResult(ndef,ndef.getNdefMessage()));
+                }
+                else if (hasTagId(ndef.getTag()))
+                {
+                    eventSuccess(formatTagToResult(bytesToHex(ndef.getTag().getId()),"ndef"));
+                }
+                else
+                {
+                    return;
+                }
+                try {
+                    ndef.close();
+                    closed = true;
+                } catch (IOException e) {
+                    Log.e(LOG_TAG, "close NDEF tag error: " + e.getMessage());
+                }
             }
             else
             {
-                return;
-            }
-            try {
-                ndef.close();
-                closed = true;
-            } catch (IOException e) {
-                Log.e(LOG_TAG, "close NDEF tag error: " + e.getMessage());
+                if(hasTagId(tag))
+                {
+                    eventSuccess(formatTagToResult(bytesToHex(tag.getId()),"tag"));
+                }
             }
         } catch (IOException e) {
             Map<String, Object> details = new HashMap<>();
@@ -291,7 +299,10 @@ public class NfcInFlutterPlugin implements MethodCallHandler,
             // Close if the tag connection if it isn't already
             if (!closed) {
                 try {
-                    ndef.close();
+                    if(ndef != null)
+                    {
+                        ndef.close();
+                    }
                 } catch (IOException e) {
                     Log.e(LOG_TAG, "close NDEF tag error: " + e.getMessage());
                 }
@@ -299,21 +310,8 @@ public class NfcInFlutterPlugin implements MethodCallHandler,
         }
     }
 
-    private boolean hasTagId(Ndef ndef) {
-        return ndef.getTag().getId() != null && ndef.getTag().getId().length > 0;
-    }
-
-    private boolean isNDEF(Ndef ndef)
-    {
-        if(ndef.getTag() == null) return false;
-        if(ndef.getTag().getTechList() == null) return false;
-
-        for(String type : ndef.getTag().getTechList())
-        {
-            if(type.toLowerCase().contains("ndef"))
-                return true;
-        }
-        return false;
+    private boolean hasTagId(Tag tag) {
+        return tag.getId() != null && tag.getId().length > 0;
     }
 
     @Override
@@ -330,33 +328,39 @@ public class NfcInFlutterPlugin implements MethodCallHandler,
 
     private void handleNDEFTagFromIntent(Tag tag) {
         Ndef ndef = Ndef.get(tag);
-        if (ndef == null) {
-            return;
-        }
-
-        NdefMessage message = ndef.getCachedNdefMessage();
-        try {
-            ndef.close();
-        } catch (IOException e) {
-            Log.e(LOG_TAG, "close NDEF tag error: " + e.getMessage());
-        }
-        if(message != null)
+        if(ndef != null)
         {
-            Map result = formatNDEFMessageToResult(ndef,message);
-            eventSuccess(result);
+            NdefMessage message = ndef.getCachedNdefMessage();
+            try {
+                ndef.close();
+            } catch (IOException e) {
+                Log.e(LOG_TAG, "close NDEF tag error: " + e.getMessage());
+            }
+            if(message != null)
+            {
+                Map result = formatNDEFMessageToResult(ndef,message);
+                eventSuccess(result);
+            }
+            else if(hasTagId(ndef.getTag()))
+            {
+                Map result = formatTagToResult(bytesToHex(ndef.getTag().getId()),"ndef");
+                eventSuccess(result);
+            }
         }
-        else if(hasTagId(ndef) && isNDEF(ndef))
+        else
         {
-            Map result = formatSimpleNDEFMessageToResult(bytesToHex(ndef.getTag().getId()),"ndef");
-            eventSuccess(result);
+            if(hasTagId(tag))
+            {
+                eventSuccess(formatTagToResult(bytesToHex(tag.getId()),"tag"));
+            }
         }
     }
 
-    private Map<String, Object> formatSimpleNDEFMessageToResult(String tagId, String messageType)
+    private Map<String, Object> formatTagToResult(String tagId, String messageType)
     {
         final Map<String, Object> result = new HashMap<>();
         result.put("id", tagId);
-        result.put("message_type", messageType);
+        result.put("result_type", messageType);
         return result;
     }
 
@@ -534,7 +538,7 @@ public class NfcInFlutterPlugin implements MethodCallHandler,
         // Fancy string formatting snippet is from
         // https://gist.github.com/luixal/5768921#gistcomment-1788815
         result.put("id", String.format("%0" + (idByteArray.length * 2) + "X", new BigInteger(1, idByteArray)));
-        result.put("message_type", "ndef");
+        result.put("result_type", "ndef");
         result.put("type", ndef.getType());
         result.put("records", records);
         result.put("writable", ndef.isWritable());
