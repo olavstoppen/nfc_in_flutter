@@ -12,12 +12,7 @@ class NFC {
 
   static Stream<dynamic> _tagStream;
 
-  static void _createTagStream() {
-    var test = _eventChannel.receiveBroadcastStream().where((tag) {
-      // In the future when more tag types are supported, this must be changed.
-      assert(tag is Map);
-      return tag["message_type"] == "ndef";
-    });
+  static void _createTagStream() {    
     _tagStream = _eventChannel.receiveBroadcastStream().where((tag) {
       // In the future when more tag types are supported, this must be changed.
       assert(tag is Map);
