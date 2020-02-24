@@ -59,10 +59,10 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   // _stream is a subscription to the stream returned by `NFC.read()`.
   // The subscription is stored in state so the stream can be canceled later
-  StreamSubscription<NDEFMessage> _stream;
+  StreamSubscription<NFCResult> _stream;
 
   // _tags is a list of scanned tags
-  List<NDEFMessage> _tags = [];
+  List<NFCResult> _tags = [];
 
   bool _supportsNFC = false;
 
@@ -71,7 +71,7 @@ class _MyAppState extends State<MyApp> {
   void _readNFC(BuildContext context) {
     try {
       // ignore: cancel_subscriptions
-      StreamSubscription<NDEFMessage> subscription = NFC.readNDEF().listen(
+      StreamSubscription<NFCResult> subscription = NFC.read().listen(
           (tag) {
         // On new tag, add it to state
         setState(() {
@@ -187,12 +187,38 @@ class _MyAppState extends State<MyApp> {
         body: ListView.builder(
           itemCount: _tags.length,
           itemBuilder: (context, index) {
-            const TextStyle payloadTextStyle = const TextStyle(
-              fontSize: 15,
-              color: const Color(0xFF454545),
-            );
 
-            return Padding(
+            var ndef = _tags[index] as NFCNDEFResult;
+            var tag = _tags[index] as NFCTagResult;
+
+            if (ndef != null)
+              return ndefCell(ndef);
+            if (tag != null)
+              return tagCell(tag);
+            return Text("Unknown");
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget tagCell(NFCTagResult tag)
+  {
+    return Padding(
+    padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text("NFC Tag ${tag.id}",style: const TextStyle(fontWeight: FontWeight.bold)),
+      ]
+    ));
+  }
+
+  static const TextStyle payloadTextStyle = const TextStyle(fontSize: 15,color: const Color(0xFF454545),);
+
+  Widget ndefCell(NFCNDEFResult ndef)
+  {
+    return Padding(
               padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -203,23 +229,23 @@ class _MyAppState extends State<MyApp> {
                     builder: (context) {
                       // Build list of records
                       List<Widget> records = [];
-                      for (int i = 0; i < _tags[index].records.length; i++) {
+                      for (int i = 0; i < ndef.message.records.length; i++) {
                         records.add(Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
                             Text(
-                              "Record ${i + 1} - ${_tags[index].records[i].type}",
+                              "Record ${i + 1} - ${ndef.message.records[i].type}",
                               style: const TextStyle(
                                 fontSize: 13,
                                 color: const Color(0xFF666666),
                               ),
                             ),
                             Text(
-                              _tags[index].records[i].payload,
+                              ndef.message.records[i].payload,
                               style: payloadTextStyle,
                             ),
                             Text(
-                              _tags[index].records[i].data,
+                              ndef.message.records[i].data,
                               style: payloadTextStyle,
                             ),
                           ],
@@ -234,9 +260,5 @@ class _MyAppState extends State<MyApp> {
                 ],
               ),
             );
-          },
-        ),
-      ),
-    );
   }
 }

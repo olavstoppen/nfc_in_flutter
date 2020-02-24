@@ -70,10 +70,21 @@ class NFCModel : NSObject
     var isSupported : Bool
     {
         guard #available(iOS 11, *) else { return false }
-        return NFCNDEFReaderSession.readingAvailable
+        return NFCReaderSession.readingAvailable
     }
     
     var isEnabled : Bool
+    {
+        return isSupported
+    }
+    
+    var isNDEFSupported : Bool
+    {
+        guard #available(iOS 11, *) else { return false }
+        return NFCNDEFReaderSession.readingAvailable
+    }
+    
+    var isNDEFEnabled : Bool
     {
         return isSupported
     }
@@ -120,9 +131,11 @@ extension NFCModel
     {
         switch (call.method)
         {
-        case "readNDEFSupported": result(isSupported)
-        case "readNDEFEnabled": result(isEnabled)
-        case "startNDEFReading":
+        case "readSupported": result(isSupported)
+        case "readEnabled": result(isEnabled)
+        case "readNDEFSupported": result(isNDEFSupported)
+        case "readNDEFEnabled": result(isNDEFEnabled)
+        case "startReading":
             let args = call.arguments as? [String:Any]
             let scanOnce = args?["scan_once"] as? Bool ?? true
             startReading(scanOnce,result:result)
@@ -206,7 +219,13 @@ extension NFCModel : NFCTagReaderSessionDelegate
         if let result = NFCTagResult(data:identifier)
         {
             log("Read Tag identifier - \(result.id)")
-            events?(result.dict)
+            let res = result.toResult
+            DispatchQueue.main.async
+            {
+                self.events?(res)
+            }
+            session.alertMessage = "RFID tag detected"
+            session.invalidate()
         }
         else
         {
@@ -368,28 +387,6 @@ class NFCNotSupportedSessionModel : NFCSession
     func invalidate(){}
 }
 
-class NFCTagResult
-{
-    let id : String
-    
-    init(id:String)
-    {
-        self.id = id
-    }
-    
-    convenience init?(data:Data)
-    {
-        let id = data.map { String(format:"%02x",$0) }.joined()
-        if id.isEmpty { return nil }
-        self.init(id:id)
-    }
-    
-    var dict : Dictionary<String,Any>
-    {
-        return ["id":id]
-    }
-}
-
 @available(iOS 11.0, *)
 class NFCSessionModel : NFCSession
 {
@@ -417,6 +414,30 @@ class NFCTaggedSessionModel : NFCSessionModel
     var lastTag : NFCNDEFTag?
 }
 
+// MARK: NFC Tag Result
+
+class NFCTagResult
+{
+    let id : String
+    
+    init(id:String)
+    {
+        self.id = id.uppercased()
+    }
+    
+    convenience init?(data:Data)
+    {
+        let id = data.map { String(format:"%02x",$0) }.joined()
+        if id.isEmpty { return nil }
+        self.init(id:id)
+    }
+    
+    var toResult : Dictionary<String,Any>
+    {
+        return ["id":id,"result_type":"tag"]
+    }
+}
+
 // MARK: NFC Message
 
 @available(iOS 11.0, *)
@@ -435,7 +456,7 @@ extension NFCNDEFMessage
             }
             records.append(result)
         }
-        return ["id":id,"message_type":"ndef","records":records]
+        return ["id":id,"result_type":"ndef","records":records]
     }
 }
 

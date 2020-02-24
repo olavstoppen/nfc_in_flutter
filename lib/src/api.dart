@@ -5,74 +5,94 @@ import 'package:flutter/services.dart';
 
 import './exceptions.dart';
 
-class NFC {
+class NFC 
+{
   static MethodChannel _channel = MethodChannel("nfc_in_flutter");
-  static const EventChannel _eventChannel =
-      const EventChannel("nfc_in_flutter/tags");
+  static const EventChannel _eventChannel = const EventChannel("nfc_in_flutter/tags");
 
   static Stream<dynamic> _tagStream;
 
-  static void _createTagStream() {    
-    _tagStream = _eventChannel.receiveBroadcastStream().where((tag) {
+  static void _createTagStream() 
+  {    
+    _tagStream = _eventChannel.receiveBroadcastStream().where((tag)
+     {
       // In the future when more tag types are supported, this must be changed.
       assert(tag is Map);
-      return tag["message_type"] == "ndef";
-    }).map<NFCMessage>((tag) {
+      var resultType = tag["result_type"];
+      return resultType == "ndef" || resultType == "tag";
+    }).map<NFCResult>((tag) 
+    {
       assert(tag is Map);
-
-      List<NDEFRecord> records = [];
-      var recs = tag["records"] ?? [];
-      for (var record in recs) {
-        NFCTypeNameFormat tnf;
-        switch (record["tnf"]) {
-          case "empty":
-            tnf = NFCTypeNameFormat.empty;
-            break;
-          case "well_known":
-            tnf = NFCTypeNameFormat.well_known;
-            break;
-          case "mime_media":
-            tnf = NFCTypeNameFormat.mime_media;
-            break;
-          case "absolute_uri":
-            tnf = NFCTypeNameFormat.absolute_uri;
-            break;
-          case "external_type":
-            tnf = NFCTypeNameFormat.external;
-            break;
-          case "unchanged":
-            tnf = NFCTypeNameFormat.unchanged;
-            break;
-          default:
-            tnf = NFCTypeNameFormat.unknown;
-        }
-
-        records.add(NDEFRecord._internal(
-          record["id"],
-          record["payload"],
-          record["type"],
-          tnf,
-          record["data"],
-          record["languageCode"],
-        ));
+      
+      switch(tag["result_type"])
+      {
+        case "ndef": return _parseNDEF(tag);
+        case "tag": return _parseTag(tag);
       }
-
-      return NDEFMessage._internal(tag["id"], tag["type"] ?? "unknown", records ?? List<NDEFRecord>());
+      return null;
     });
   }
 
-  static void _startReadingNDEF(bool once, NFCReaderMode readerMode) {
-    // Start reading
+  static NFCResult _parseTag(Map tag)
+  {
+    String id = tag["id"] as String;
+    if (id != null)
+      return NFCTagResult(id:id);
+    return null;
+  }
+
+  static NFCResult _parseNDEF(Map tag)
+  {
+    List<NDEFRecord> records = [];
+    var recs = tag["records"] ?? [];
+    for (var record in recs) {
+      NFCTypeNameFormat tnf;
+      switch (record["tnf"]) {
+        case "empty":
+          tnf = NFCTypeNameFormat.empty;
+          break;
+        case "well_known":
+          tnf = NFCTypeNameFormat.well_known;
+          break;
+        case "mime_media":
+          tnf = NFCTypeNameFormat.mime_media;
+          break;
+        case "absolute_uri":
+          tnf = NFCTypeNameFormat.absolute_uri;
+          break;
+        case "external_type":
+          tnf = NFCTypeNameFormat.external;
+          break;
+        case "unchanged":
+          tnf = NFCTypeNameFormat.unchanged;
+          break;
+        default:
+          tnf = NFCTypeNameFormat.unknown;
+      }
+
+      records.add(NDEFRecord._internal(
+        record["id"],
+        record["payload"],
+        record["type"],
+        tnf,
+        record["data"],
+        record["languageCode"],
+      ));
+    }
+
+    return NFCNDEFResult(message:NDEFMessage._internal(tag["id"], tag["type"] ?? "unknown", records ?? List<NDEFRecord>()));
+  }
+
+  static void _startReading(bool once, NFCReaderMode readerMode) 
+  {    
     Map arguments = {
       "scan_once": once,
       "reader_mode": readerMode.name,
     }..addAll(readerMode._options);
-    _channel.invokeMethod("startNDEFReading", arguments);
+    _channel.invokeMethod("startReading", arguments);
   }
-
-  /// readNDEF starts listening for NDEF formatted tags. Any non-NDEF formatted
-  /// tags will be filtered out.
-  static Stream<NDEFMessage> readNDEF(
+  
+  static Stream<NFCResult> read(
       {
 
       /// once will stop reading after the first tag has been read.
@@ -94,14 +114,18 @@ class NFC {
     // Create a StreamController to wrap the tag stream. Any errors will be
     // converted to their matching exception classes. The controller stream will
     // be closed if the errors are fatal.
-    StreamController<NDEFMessage> controller = StreamController();
+    StreamController<NFCResult> controller = StreamController();
     final stream = once ? _tagStream.take(1) : _tagStream;
     // Listen for tag reads.
-    final subscription = stream.listen((message) {
+    final subscription = stream.listen((message) 
+    {
       controller.add(message);
-    }, onError: (error) {
-      if (error is PlatformException) {
-        switch (error.code) {
+    }, onError: (error) 
+    {
+      if (error is PlatformException) 
+      {
+        switch (error.code) 
+        {
           case "NDEFUnsupportedFeatureError":
             controller.addError(NDEFReadingUnsupportedException());
             controller.close();
@@ -137,18 +161,23 @@ class NFC {
         }
       }
       controller.addError(error);
-    }, onDone: () {
+    }, onDone: () 
+    {
       _tagStream = null;
       return controller.close();
     });
-    controller.onCancel = () {
+    controller.onCancel = () 
+    {
       subscription.cancel();
     };
 
-    try {
-      _startReadingNDEF(once, const NFCNormalReaderMode());
-    } on PlatformException catch (err) {
-      if (err.code == "NFCMultipleReaderModes") {
+    try 
+    {
+      _startReading(once, const NFCNormalReaderMode());
+    } on PlatformException catch (err) 
+    {
+      if (err.code == "NFCMultipleReaderModes") 
+      {
         throw NFCMultipleReaderModesException();
       }
       throw err;
@@ -201,7 +230,7 @@ class NFC {
     };
 
     try {
-      _startReadingNDEF(once, readerMode);
+      _startReading(once, readerMode);
     } on PlatformException catch (err) {
       if (err.code == "NFCMultipleReaderModes") {
         throw NFCMultipleReaderModesException();
@@ -212,18 +241,34 @@ class NFC {
     return controller.stream;
   }
 
-  static Future<bool> startHostEmulationService(){
-    _channel.invokeMethod("emulateHostCard");
+  static Future<bool> startHostEmulationService()
+  {
+    return _channel.invokeMethod("emulateHostCard");
+  }
+  
+  static Future<bool> get isSupported async 
+  {
+    final supported = await _channel.invokeMethod("readSupported");
+    assert(supported is bool);
+    return supported as bool;
   }
 
-  /// isNDEFSupported checks if the device supports reading NDEF tags
-  static Future<bool> get isNDEFSupported async {
+  static Future<bool> get isEnabled async 
+  {
+    final supported = await _channel.invokeMethod("readEnabled");
+    assert(supported is bool);
+    return supported as bool;
+  }
+
+  static Future<bool> get isNDEFSupported async 
+  {
     final supported = await _channel.invokeMethod("readNDEFSupported");
     assert(supported is bool);
     return supported as bool;
   }
 
-  static Future<bool> get isNDEFEnabled async {
+  static Future<bool> get isNDEFEnabled async 
+  {
     final supported = await _channel.invokeMethod("readNDEFEnabled");
     assert(supported is bool);
     return supported as bool;
@@ -233,7 +278,8 @@ class NFC {
 /// NFCReaderMode is an interface for different reading modes
 // The reading modes are implemented as classes instead of enums, so they could
 // support options in the future without breaking changes.
-abstract class NFCReaderMode {
+abstract class NFCReaderMode 
+{
   String get name;
 
   Map get _options;
@@ -241,7 +287,8 @@ abstract class NFCReaderMode {
 
 /// NFCNormalReaderMode uses the platform's normal reading mode. This does not
 /// allow reading from emulated host cards.
-class NFCNormalReaderMode implements NFCReaderMode {
+class NFCNormalReaderMode implements NFCReaderMode 
+{
   String get name => "normal";
 
   /// noSounds tells the platform not to play any sounds when a tag has been
@@ -261,9 +308,31 @@ class NFCNormalReaderMode implements NFCReaderMode {
   }
 }
 
+abstract class NFCResult
+{
+  String get id;
+}
+
+class NFCTagResult extends NFCResult
+{
+  final String id;
+
+  NFCTagResult({this.id});
+}
+
+class NFCNDEFResult extends NFCResult
+{
+  NDEFMessage message;
+  
+  String get id => message.id;
+
+  NFCNDEFResult({this.message});
+}
+
 /// NFCDispatchReaderMode uses the Android NFC Foreground Dispatch API to read
 /// tags with.
-class NFCDispatchReaderMode implements NFCReaderMode {
+class NFCDispatchReaderMode implements NFCReaderMode 
+{
   String get name => "dispatch";
 
   @override
@@ -272,23 +341,27 @@ class NFCDispatchReaderMode implements NFCReaderMode {
   }
 }
 
-enum MessageType {
+enum MessageType 
+{
   NDEF,
 }
 
-abstract class NFCMessage {
+abstract class NFCMessage 
+{
   MessageType get messageType;
   String get id;
 
   NFCTag get tag;
 }
 
-abstract class NFCTag {
+abstract class NFCTag 
+{
   String get id;
   bool get writable;
 }
 
-class NDEFMessage implements NFCMessage {
+class NDEFMessage implements NFCMessage 
+{
   final String id;
   String type;
   List<NDEFRecord> records = List<NDEFRecord>();
@@ -340,7 +413,8 @@ class NDEFMessage implements NFCMessage {
   }
 }
 
-enum NFCTypeNameFormat {
+enum NFCTypeNameFormat 
+{
   empty,
   well_known,
   mime_media,
@@ -350,7 +424,8 @@ enum NFCTypeNameFormat {
   unchanged,
 }
 
-class NDEFRecord {
+class NDEFRecord 
+{
   final String id;
   final String payload;
   final String type;
@@ -461,7 +536,8 @@ class NDEFRecord {
   }
 }
 
-class NDEFTag implements NFCTag {
+class NDEFTag implements NFCTag 
+{
   final String id;
   final bool writable;
 

@@ -8,12 +8,12 @@ class ReadTagModel
 {
   bool isReadingContinuous = false;
   String get continuousButtonTitle => isReadingContinuous ? "Stop" : "Start";
-  List<NDEFMessage> continuousTags = List();
+  List<NFCResult> continuousTags = List();
 
   bool supported = false;
   bool enabled = false;
 
-  StreamSubscription<NDEFMessage> _continuousStream;
+  StreamSubscription<NFCResult> _continuousStream;
 
   VoidCallback reload;
 
@@ -23,8 +23,8 @@ class ReadTagModel
   {
     this.reload = reload;
 
-    enabled = await NFC.isNDEFEnabled;
-    supported = await NFC.isNDEFSupported;
+    enabled = await NFC.isEnabled;
+    supported = await NFC.isSupported;
 
     if (enabled && supported)
       error = null;
@@ -56,7 +56,7 @@ class ReadTagModel
 
       reload();
 
-      _continuousStream = NFC.readNDEF().listen((tag)
+      _continuousStream = NFC.read().listen((tag)
       {
         print("Scanned tag with id ${tag.id}");
         continuousTags.add(tag);
@@ -86,12 +86,4 @@ class ReadTagModel
     isReadingContinuous = false;
     reload();
   }
-}
-
-class ReadResult
-{
-  final NDEFMessage message;
-  final bool error;
-
-  ReadResult({this.message, this.error});
 }
