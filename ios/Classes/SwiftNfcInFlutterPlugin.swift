@@ -175,11 +175,14 @@ extension NFCModel : NFCTagReaderSessionDelegate
 {
     func tagReaderSession(_ session: NFCTagReaderSession, didInvalidateWithError error: Error)
     {
+        let nsError = error as NSError
+        let nfcError = NFCReaderError(_nsError:nsError)
+        
         log("NFCTagReaderSession Did invalidate with error - \(error)")
         
         self.session = nil
         
-        DispatchQueue.main.async { self.events?(FlutterError(error)) }
+        DispatchQueue.main.async { self.events?(FlutterError(nfcError)) }
     }
     
     func tagReaderSessionDidBecomeActive(_ session: NFCTagReaderSession)
