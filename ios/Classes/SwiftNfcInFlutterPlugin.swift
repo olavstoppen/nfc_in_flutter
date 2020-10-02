@@ -1,7 +1,9 @@
 import Flutter
 import UIKit
+
+#if canImport(CoreNFC)
 import CoreNFC
-import NFCSwift
+#endif
 
 fileprivate let methodChannelName = "nfc_in_flutter"
 fileprivate let eventChannelName = "nfc_in_flutter/tags"
@@ -10,6 +12,99 @@ func log(_ msg:String)
 {
     print(msg)
 }
+
+public class SwiftNfcInFlutterPlugin: NSObject, FlutterPlugin
+{
+    public static func register(with registrar: FlutterPluginRegistrar)
+    {
+        let methodChannel = FlutterMethodChannel(name: methodChannelName, binaryMessenger: registrar.messenger())
+        let eventChannel = FlutterEventChannel(name:eventChannelName, binaryMessenger: registrar.messenger())
+        
+        let instance = SwiftNfcInFlutterPlugin()
+        registrar.addMethodCallDelegate(instance, channel: methodChannel)
+        eventChannel.setStreamHandler(instance.model)
+    }
+    
+    #if canImport(CoreNFC)
+    let model = TagReaderModel()
+    #else
+    let model = TagReaderNotSupportedModel()
+    #endif
+    
+    public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult)
+    {
+        switch (call.method)
+        {
+        case "readSupported": result(model.isSupported)
+        case "readEnabled": result(model.isEnabled)
+        case "readNDEFSupported": result(model.isNDEFSupported)
+        case "readNDEFEnabled": result(model.isNDEFEnabled)
+        case "startReading":
+            let args = call.arguments as? [String:Any]
+            let scanOnce = args?["scan_once"] as? Bool ?? true
+            model.startReading(scanOnce,result:result)
+        case "writeNDEF":
+            let args = call.arguments as? [String:Any]
+            model.writeToTag(args,result:result)
+        default: result(FlutterMethodNotImplemented)
+        }
+    }
+}
+
+protocol NFCModel : FlutterStreamHandler
+{
+    var isSupported : Bool { get }
+    var isEnabled : Bool { get }
+    var isNDEFSupported : Bool { get }
+    var isNDEFEnabled : Bool { get }
+    func startReading(_ scanOnce:Bool, result:(FlutterResult?)->Void)
+    func writeToTag(_ args:[String:Any]?, result:(FlutterResult?)->Void)
+}
+
+class TagReaderNotSupportedModel : NFCModel
+{
+    var isSupported : Bool
+    {
+        return false
+    }
+    
+    var isEnabled : Bool
+    {
+        return false
+    }
+    
+    var isNDEFSupported : Bool
+    {
+        return false
+    }
+        
+    var isNDEFEnabled : Bool
+    {
+        return false
+    }
+    
+    func startReading(_ scanOnce:Bool, result:(FlutterResult?)->Void)
+    {
+        result(nil)
+    }
+    
+    func writeToTag(_ args:[String:Any]?, result:(FlutterResult?)->Void)
+    {
+        result(nil)
+    }
+    
+    func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError?
+    {
+        return nil
+    }
+
+    func onCancel(withArguments arguments: Any?) -> FlutterError?
+    {
+        return nil
+    }
+}
+
+#if canImport(CoreNFC)
 
 @available(iOS 11.0, *)
 extension FlutterError
@@ -42,27 +137,7 @@ extension NFCReaderError
     }
 }
 
-public class SwiftNfcInFlutterPlugin: NSObject, FlutterPlugin 
-{
-    public static func register(with registrar: FlutterPluginRegistrar)
-    {
-        let methodChannel = FlutterMethodChannel(name: methodChannelName, binaryMessenger: registrar.messenger())
-        let eventChannel = FlutterEventChannel(name:eventChannelName, binaryMessenger: registrar.messenger())
-        
-        let instance = SwiftNfcInFlutterPlugin()
-        registrar.addMethodCallDelegate(instance, channel: methodChannel)
-        eventChannel.setStreamHandler(instance.model)
-    }
-    
-    let model = NFCModel()
-    
-    public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult)
-    {
-        model.handle(call,result:result)
-    }
-}
-
-class NFCModel : NSObject
+class TagReaderModel : NSObject,NFCModel
 {
     var events : FlutterEventSink?
     var session : NFCSession?
@@ -83,7 +158,7 @@ class NFCModel : NSObject
         guard #available(iOS 11, *) else { return false }
         return NFCNDEFReaderSession.readingAvailable
     }
-    
+        
     var isNDEFEnabled : Bool
     {
         return isSupported
@@ -123,55 +198,10 @@ class NFCModel : NSObject
     }
 }
 
-// MARK: FlutterMethodHandler
-
-extension NFCModel
-{
-    func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult)
-    {
-        switch (call.method)
-        {
-        case "readSupported": result(isSupported)
-        case "readEnabled": result(isEnabled)
-        case "readNDEFSupported": result(isNDEFSupported)
-        case "readNDEFEnabled": result(isNDEFEnabled)
-        case "startReading":
-            let args = call.arguments as? [String:Any]
-            let scanOnce = args?["scan_once"] as? Bool ?? true
-            startReading(scanOnce,result:result)
-        case "writeNDEF":
-            let args = call.arguments as? [String:Any]
-            writeToTag(args,result:result)
-        default: result(FlutterMethodNotImplemented)
-        }
-    }
-}
-
-// MARK: FlutterStreamHandler
-
-extension NFCModel : FlutterStreamHandler
-{
-    func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError?
-    {
-        guard #available(iOS 11, *) else { return FlutterError(code:"NDEFUnsupportedFeatureError",message:nil,details:nil) }
-        self.events = events
-        return nil
-    }
-
-    func onCancel(withArguments arguments: Any?) -> FlutterError?
-    {
-        if session != nil {
-            session = nil
-        }
-        self.events = nil
-        return nil
-    }
-}
-
 // MARK: NFCTagReaderSessionDelegate
 
 @available(iOS 13.0, *)
-extension NFCModel : NFCTagReaderSessionDelegate
+extension TagReaderModel : NFCTagReaderSessionDelegate
 {
     func tagReaderSession(_ session: NFCTagReaderSession, didInvalidateWithError error: Error)
     {
@@ -239,10 +269,29 @@ extension NFCModel : NFCTagReaderSessionDelegate
     }
 }
 
+extension TagReaderModel : FlutterStreamHandler
+{
+    func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError?
+    {
+        guard #available(iOS 11, *) else { return FlutterError(code:"NDEFUnsupportedFeatureError",message:nil,details:nil) }
+        self.events = events
+        return nil
+    }
+
+    func onCancel(withArguments arguments: Any?) -> FlutterError?
+    {
+        if session != nil {
+            session = nil
+        }
+        self.events = nil
+        return nil
+    }
+}
+
 // MARK: NFCNDEFReaderSessionDelegate
 
 @available(iOS 11.0, *)
-extension NFCModel : NFCNDEFReaderSessionDelegate
+extension TagReaderModel : NFCNDEFReaderSessionDelegate
 {
     func readerSession(_ session: NFCNDEFReaderSession, didInvalidateWithError error: Error)
     {
@@ -367,7 +416,7 @@ extension NFCModel : NFCNDEFReaderSessionDelegate
 
 // MARK: NFC Tag Writing
 
-extension NFCModel
+extension TagReaderModel
 {
     func writeToTag(_ args:[String:Any]?, result:(FlutterResult?)->Void)
     {
@@ -533,15 +582,6 @@ extension NFCNDEFPayload
     }
 }
 
-extension String
-{
-    init(bytesArray: [UInt8], encoding: String.Encoding = .utf8)
-    {
-        let dataUtf = NSData(bytes: bytesArray, length: bytesArray.count)
-        self = String(data: dataUtf as Data, encoding: encoding) ?? ""
-    }
-}
-
 func subArray(array: [CUnsignedChar], from: Int, length: Int) -> [CUnsignedChar]
 {
     if length > 0, array.count-1 >= from+length-1
@@ -551,3 +591,5 @@ func subArray(array: [CUnsignedChar], from: Int, length: Int) -> [CUnsignedChar]
     }
     return [0]
 }
+
+#endif
